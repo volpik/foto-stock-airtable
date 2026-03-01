@@ -1,198 +1,311 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Foto Stock → Airtable</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --surface2: #1e1e1e;
-    --border: #2a2a2a;
-    --accent: #d4f53c;
-    --accent2: #5b8def;
-    --text: #f0f0f0;
-    --muted: #666;
-    --unsplash: #d4f53c;
-    --pexels: #05a081;
-    --pixabay: #e8ca4e;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; }
-  header { padding: 20px 32px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); z-index: 100; }
-  .logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
-  .logo span { color: var(--accent); }
-  .record-badge { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); background: var(--surface); padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); }
-  .search-section { padding: 32px; max-width: 900px; margin: 0 auto; }
-  .search-row { display: flex; gap: 12px; align-items: center; }
-  .search-input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'Syne', sans-serif; font-size: 16px; padding: 14px 18px; border-radius: 10px; outline: none; transition: border-color 0.2s; }
-  .search-input:focus { border-color: var(--accent); }
-  .search-input::placeholder { color: var(--muted); }
-  .btn-search { background: var(--accent); color: #000; border: none; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; padding: 14px 28px; border-radius: 10px; cursor: pointer; transition: opacity 0.2s, transform 0.1s; white-space: nowrap; }
-  .btn-search:hover { opacity: 0.85; }
-  .btn-search:active { transform: scale(0.97); }
-  .btn-search:disabled { opacity: 0.4; cursor: not-allowed; }
-  .filters { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
-  .filter-btn { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px; }
-  .filter-btn.active-unsplash { border-color: var(--unsplash); color: var(--unsplash); background: rgba(212,245,60,0.08); }
-  .filter-btn.active-pexels { border-color: var(--pexels); color: var(--pexels); background: rgba(5,160,129,0.08); }
-  .filter-btn.active-all { border-color: var(--accent2); color: var(--accent2); background: rgba(91,141,239,0.08); }
-  .results-info { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 8px; }
-  .results-info strong { color: var(--text); }
-  .grid-container { padding: 0 32px 120px; max-width: 900px; margin: 0 auto; }
-  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .photo-card { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s, border-color 0.2s; aspect-ratio: 4/3; background: var(--surface); }
-  .photo-card:hover { transform: scale(1.02); }
-  .photo-card.selected { border-color: var(--accent); }
-  .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .photo-card .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
-  .photo-card.selected .overlay { background: rgba(212,245,60,0.15); }
-  .check-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.5); transition: all 0.2s; }
-  .photo-card.selected .check-icon { opacity: 1; transform: scale(1); }
-  .check-icon svg { width: 18px; height: 18px; }
-  .source-badge { position: absolute; top: 8px; left: 8px; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; padding: 3px 7px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .badge-unsplash { background: var(--unsplash); color: #000; }
-  .badge-pexels { background: var(--pexels); color: #fff; }
-  .loading { text-align: center; padding: 60px 0; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 14px; }
-  .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .empty { text-align: center; padding: 60px 0; color: var(--muted); font-size: 14px; font-family: 'DM Mono', monospace; }
-  .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(20,20,20,0.97); backdrop-filter: blur(12px); border-top: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; transform: translateY(100%); transition: transform 0.3s ease; }
-  .bottom-bar.visible { transform: translateY(0); }
-  .selection-count { font-size: 14px; font-family: 'DM Mono', monospace; color: var(--muted); }
-  .selection-count strong { color: var(--accent); font-size: 20px; }
-  .bar-actions { display: flex; gap: 10px; }
-  .btn-clear { background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
-  .btn-clear:hover { border-color: var(--muted); color: var(--text); }
-  .btn-insert { background: var(--accent); color: #000; border: none; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; padding: 10px 24px; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; gap: 8px; }
-  .btn-insert:hover { opacity: 0.85; }
-  .btn-insert:disabled { opacity: 0.4; cursor: not-allowed; }
-  .toast { position: fixed; top: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 14px 20px; border-radius: 10px; font-size: 14px; font-family: 'DM Mono', monospace; transform: translateX(120%); transition: transform 0.3s ease; z-index: 999; max-width: 320px; }
-  .toast.show { transform: translateX(0); }
-  .toast.success { border-left: 3px solid var(--accent); }
-  .toast.error { border-left: 3px solid #ff4d4d; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foto Stock → Airtable</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0a; color: #f0f0f0; font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; }
+
+    /* HEADER */
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #1e1e1e; }
+    .logo { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.5px; }
+    .logo span { color: #c8ff00; }
+    .record-badge { font-size: 0.75rem; padding: 6px 14px; border-radius: 999px; background: #1a1a1a; border: 1px solid #333; color: #aaa; }
+    .record-badge.error { border-color: #ff4444; color: #ff6666; }
+    .record-badge.ok { border-color: #444; color: #ccc; }
+
+    /* SEARCH */
+    .search-area { padding: 20px 24px 12px; }
+    .search-row { display: flex; gap: 10px; }
+    .search-input {
+      flex: 1; padding: 12px 18px; border-radius: 10px;
+      background: #141414; border: 1px solid #2a2a2a; color: #f0f0f0;
+      font-size: 1rem; outline: none; transition: border-color .2s;
+    }
+    .search-input:focus { border-color: #c8ff00; }
+    .search-input::placeholder { color: #555; }
+    .btn-search {
+      padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer;
+      background: #c8ff00; color: #0a0a0a; font-weight: 700; font-size: 1rem;
+      transition: opacity .2s;
+    }
+    .btn-search:hover { opacity: .85; }
+    .btn-search:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* FILTERS */
+    .filters { display: flex; gap: 8px; padding: 0 24px 16px; }
+    .filter-btn {
+      padding: 5px 14px; border-radius: 999px; border: 1px solid #2a2a2a;
+      background: transparent; color: #888; font-size: 0.75rem; cursor: pointer;
+      letter-spacing: .05em; text-transform: uppercase; font-weight: 600; transition: all .2s;
+    }
+    .filter-btn.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
+
+    /* CONTENT */
+    #content { padding: 0 24px 24px; }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+    .photo-card {
+      position: relative; border-radius: 10px; overflow: hidden; cursor: pointer;
+      aspect-ratio: 3/2; border: 2px solid transparent; transition: border-color .15s;
+    }
+    .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo-card.selected { border-color: #c8ff00; }
+    .photo-card .badge {
+      position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.6);
+      color: #fff; font-size: 0.6rem; padding: 2px 7px; border-radius: 999px;
+      text-transform: uppercase; font-weight: 700; letter-spacing: .05em;
+    }
+    .photo-card .check {
+      position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+      background: #c8ff00; border-radius: 50%; display: none; align-items: center;
+      justify-content: center; color: #000; font-size: 13px; font-weight: 900;
+    }
+    .photo-card.selected .check { display: flex; }
+
+    /* STATO VUOTO */
+    .empty { text-align: center; color: #444; padding: 60px 0; font-size: 0.95rem; line-height: 2; }
+    .loading { text-align: center; padding: 60px 0; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #222; border-top-color: #c8ff00;
+      border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* BOTTOM BAR */
+    .bottom-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #111; border-top: 1px solid #1e1e1e;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; transform: translateY(100%); transition: transform .25s;
+    }
+    .bottom-bar.visible { transform: translateY(0); }
+    .selection-count { font-size: 0.85rem; color: #aaa; }
+    .selection-count strong { color: #c8ff00; }
+    .bar-actions { display: flex; gap: 10px; }
+    .btn-clear { padding: 8px 16px; border-radius: 8px; border: 1px solid #333; background: transparent; color: #888; cursor: pointer; font-size: 0.85rem; }
+    .btn-insert {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 20px; border-radius: 8px; border: none;
+      background: #c8ff00; color: #0a0a0a; font-weight: 700; cursor: pointer; font-size: 0.85rem;
+    }
+    .btn-insert:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+      opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap;
+    }
+    .toast.success { background: #1a3a1a; color: #6fff6f; border: 1px solid #2a5a2a; }
+    .toast.error { background: #3a1a1a; color: #ff6f6f; border: 1px solid #5a2a2a; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
 </head>
 <body>
-<header>
+
+<div class="header">
   <div class="logo">Foto<span>Stock</span> → Airtable</div>
-  <div class="record-badge" id="recordBadge">Nessun record</div>
-</header>
-<main>
-  <div class="search-section">
-    <div class="search-row">
-      <input type="text" class="search-input" id="searchInput" placeholder="Es: dubai skyline, business meeting, entrepreneur..." autocomplete="off">
-      <button class="btn-search" id="searchBtn" onclick="doSearch()">Cerca →</button>
-    </div>
-    <div class="filters">
-      <button class="filter-btn active-all" id="filter-all" onclick="setFilter('all')">Tutte</button>
-      <button class="filter-btn" id="filter-unsplash" onclick="setFilter('unsplash')">Unsplash</button>
-      <button class="filter-btn" id="filter-pexels" onclick="setFilter('pexels')">Pexels</button>
-    </div>
-    <div class="results-info" id="resultsInfo"></div>
+  <div class="record-badge error" id="recordBadge">⚠ Nessun record — apri da Airtable</div>
+</div>
+
+<div class="search-area">
+  <div class="search-row">
+    <input type="text" class="search-input" id="searchInput" placeholder="Es: dubai skyline, business meeting, entrepreneur...">
+    <button class="btn-search" id="searchBtn" onclick="doSearch()">Cerca →</button>
   </div>
-  <div class="grid-container">
-    <div id="content"><div class="empty">Inserisci una keyword e premi Cerca</div></div>
-  </div>
-</main>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" id="filter-all" onclick="setFilter('all')">Tutte</button>
+  <button class="filter-btn" id="filter-unsplash" onclick="setFilter('unsplash')">Unsplash</button>
+  <button class="filter-btn" id="filter-pexels" onclick="setFilter('pexels')">Pexels</button>
+</div>
+
+<div id="content">
+  <div class="empty">Inserisci una keyword e premi Cerca</div>
+</div>
+
 <div class="bottom-bar" id="bottomBar">
   <div class="selection-count"><strong id="selCount">0</strong> foto selezionate</div>
   <div class="bar-actions">
     <button class="btn-clear" onclick="clearSelection()">Deseleziona tutto</button>
     <button class="btn-insert" id="insertBtn" onclick="insertToAirtable()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       Inserisci in Airtable
     </button>
   </div>
 </div>
+
 <div class="toast" id="toast"></div>
+
 <script>
-const CONFIG = {
-  UNSPLASH_KEY: '7ozuRp8PS6Zm6eb_oxeLt7AwxE63sciPZal07O8Ae18',
-  PEXELS_KEY: 'AP45pPkhQhQe1DKJsvkm6J20zd96af7v06v6Xdz14ezQ0j1iRXsGUfAK',
-  AIRTABLE_TOKEN: 'patCcVVA2dYnoCFuR.9a0667608417be9d198f7c3929541c618475a577beca2b067fca94f77b39276d',
-  AIRTABLE_BASE: 'appho0gfGOlOqBnjQ',
-  AIRTABLE_TABLE: 'tblahyShxptByPlmJ',
-  AIRTABLE_FIELD: 'Attachments',
-  PER_SOURCE: 15
-};
-let allPhotos = [], selectedPhotos = new Set(), currentFilter = 'all', recordId = null;
-window.addEventListener('DOMContentLoaded', () => {
-  const params = new URLSearchParams(window.location.search);
-  recordId = params.get('recordId');
-  const badge = document.getElementById('recordBadge');
-  if (recordId) { badge.textContent = 'Record: ' + recordId.slice(0,10) + '...'; badge.style.borderColor = '#3a3a3a'; }
-  else { badge.textContent = '⚠ Nessun record — apri da Airtable'; badge.style.borderColor = '#ff4d4d'; badge.style.color = '#ff4d4d'; }
-  document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-});
-async function doSearch() {
-  const query = document.getElementById('searchInput').value.trim();
-  if (!query) return;
-  selectedPhotos.clear(); updateBottomBar(); showLoading();
-  const [u, p] = await Promise.allSettled([searchUnsplash(query), searchPexels(query)]);
-  allPhotos = [];
-  if (u.status === 'fulfilled') allPhotos.push(...u.value);
-  if (p.status === 'fulfilled') allPhotos.push(...p.value);
-  allPhotos = shuffle(allPhotos);
-  renderGrid(); updateInfo();
-}
-async function searchUnsplash(query) {
-  const res = await fetch('https://api.unsplash.com/search/photos?query=' + encodeURIComponent(query) + '&per_page=' + CONFIG.PER_SOURCE + '&orientation=landscape', { headers: { Authorization: 'Client-ID ' + CONFIG.UNSPLASH_KEY } });
-  if (!res.ok) throw new Error('Unsplash error');
-  const data = await res.json();
-  return data.results.map(p => ({ id: 'u_' + p.id, source: 'unsplash', thumb: p.urls.small, url: p.urls.full, filename: 'unsplash_' + p.id + '.jpg', author: p.user.name, downloadUrl: p.links.download_location }));
-}
-async function searchPexels(query) {
-  const res = await fetch('https://api.pexels.com/v1/search?query=' + encodeURIComponent(query) + '&per_page=' + CONFIG.PER_SOURCE + '&orientation=landscape', { headers: { Authorization: CONFIG.PEXELS_KEY } });
-  if (!res.ok) throw new Error('Pexels error');
-  const data = await res.json();
-  return data.photos.map(p => ({ id: 'p_' + p.id, source: 'pexels', thumb: p.src.medium, url: p.src.large2x, filename: 'pexels_' + p.id + '.jpg', author: p.photographer, downloadUrl: null }));
-}
-function renderGrid() {
-  const filtered = currentFilter === 'all' ? allPhotos : allPhotos.filter(p => p.source === currentFilter);
-  if (filtered.length === 0) { document.getElementById('content').innerHTML = '<div class="empty">Nessuna foto trovata.</div>'; return; }
-  const grid = document.createElement('div'); grid.className = 'photo-grid';
-  filtered.forEach(photo => {
-    const card = document.createElement('div');
-    card.className = 'photo-card' + (selectedPhotos.has(photo.id) ? ' selected' : '');
-    card.dataset.id = photo.id; card.onclick = () => togglePhoto(photo.id);
-    card.innerHTML = '<img src="' + photo.thumb + '" alt="' + photo.author + '" loading="lazy"><div class="overlay"><div class="check-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div></div><div class="source-badge badge-' + photo.source + '">' + (photo.source === 'unsplash' ? 'U' : 'P') + '</div>';
-    grid.appendChild(card);
+  // ── WORKER URL (nessuna API key qui) ─────────────────────────────
+  const WORKER = 'https://cool-truth-2171foto-stock.cristiano-volpi-account.workers.dev';
+  const PER_SOURCE = 15;
+
+  let allPhotos = [], selectedPhotos = new Set(), currentFilter = 'all', recordId = null;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    recordId = params.get('recordId');
+    const badge = document.getElementById('recordBadge');
+    if (recordId) {
+      badge.textContent = 'Record: ' + recordId.slice(0, 10) + '...';
+      badge.className = 'record-badge ok';
+    }
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
   });
-  document.getElementById('content').innerHTML = ''; document.getElementById('content').appendChild(grid);
-}
-function updateInfo() {
-  const u = allPhotos.filter(p => p.source === 'unsplash').length;
-  const p = allPhotos.filter(p => p.source === 'pexels').length;
-  document.getElementById('resultsInfo').innerHTML = '<strong>' + allPhotos.length + '</strong> foto — Unsplash: ' + u + ' · Pexels: ' + p;
-}
-function togglePhoto(id) { selectedPhotos.has(id) ? selectedPhotos.delete(id) : selectedPhotos.add(id); const card = document.querySelector('[data-id="' + id + '"]'); if (card) card.classList.toggle('selected', selectedPhotos.has(id)); updateBottomBar(); }
-function clearSelection() { selectedPhotos.clear(); document.querySelectorAll('.photo-card.selected').forEach(c => c.classList.remove('selected')); updateBottomBar(); }
-function updateBottomBar() { const count = selectedPhotos.size; document.getElementById('selCount').textContent = count; document.getElementById('bottomBar').classList.toggle('visible', count > 0); }
-function setFilter(filter) {
-  currentFilter = filter;
-  ['all', 'unsplash', 'pexels'].forEach(f => { document.getElementById('filter-' + f).className = 'filter-btn' + (filter === f ? ' active-' + (f === 'all' ? 'all' : f) : ''); });
-  if (allPhotos.length > 0) renderGrid();
-}
-async function insertToAirtable() {
-  if (!recordId) { showToast('⚠ Nessun record ID — apri da Airtable', 'error'); return; }
-  if (selectedPhotos.size === 0) return;
-  const btn = document.getElementById('insertBtn'); btn.disabled = true; btn.textContent = 'Inserimento...';
-  try {
-    const selected = allPhotos.filter(p => selectedPhotos.has(p.id));
-    for (const photo of selected) { if (photo.source === 'unsplash' && photo.downloadUrl) { await fetch(photo.downloadUrl, { headers: { Authorization: 'Client-ID ' + CONFIG.UNSPLASH_KEY } }).catch(() => {}); } }
-    const attachments = selected.map(p => ({ url: p.url, filename: p.filename }));
-    const res = await fetch('https://api.airtable.com/v0/' + CONFIG.AIRTABLE_BASE + '/' + CONFIG.AIRTABLE_TABLE + '/' + recordId, { method: 'PATCH', headers: { Authorization: 'Bearer ' + CONFIG.AIRTABLE_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { [CONFIG.AIRTABLE_FIELD]: attachments } }) });
-    if (!res.ok) { const err = await res.json(); throw new Error(err.error && err.error.message || 'Errore Airtable'); }
-    showToast('✓ ' + attachments.length + ' foto inserite nel record!', 'success'); clearSelection();
-  } catch (err) { showToast('Errore: ' + err.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Inserisci in Airtable'; }
-}
-function showLoading() { document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div>Ricerca in corso...</div>'; document.getElementById('resultsInfo').textContent = ''; }
-function showToast(msg, type) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + (type || 'success') + ' show'; setTimeout(() => t.classList.remove('show'), 4000); }
-function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  async function doSearch() {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) return;
+    selectedPhotos.clear(); updateBottomBar(); showLoading();
+    const [u, p] = await Promise.allSettled([searchUnsplash(query), searchPexels(query)]);
+    allPhotos = [];
+    if (u.status === 'fulfilled') allPhotos.push(...u.value);
+    if (p.status === 'fulfilled') allPhotos.push(...p.value);
+    allPhotos = shuffle(allPhotos);
+    renderGrid(); updateInfo();
+  }
+
+  async function searchUnsplash(query) {
+    const res = await fetch(`${WORKER}/unsplash?q=${encodeURIComponent(query)}&per_page=${PER_SOURCE}`);
+    if (!res.ok) throw new Error('Unsplash error');
+    const data = await res.json();
+    return data.results.map(p => ({
+      id: 'u_' + p.id, source: 'unsplash',
+      thumb: p.urls.small, full: p.urls.regular,
+      downloadUrl: p.links.download_location,
+      filename: `unsplash-${p.id}.jpg`
+    }));
+  }
+
+  async function searchPexels(query) {
+    const res = await fetch(`${WORKER}/pexels?q=${encodeURIComponent(query)}&per_page=${PER_SOURCE}`);
+    if (!res.ok) throw new Error('Pexels error');
+    const data = await res.json();
+    return data.photos.map(p => ({
+      id: 'p_' + p.id, source: 'pexels',
+      thumb: p.src.medium, full: p.src.large,
+      downloadUrl: null, filename: `pexels-${p.id}.jpg`
+    }));
+  }
+
+  function renderGrid() {
+    const filtered = currentFilter === 'all' ? allPhotos : allPhotos.filter(p => p.source === currentFilter);
+    if (filtered.length === 0) {
+      document.getElementById('content').innerHTML = '<div class="empty">Nessuna foto trovata per questa ricerca.</div>';
+      return;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'photo-grid';
+    filtered.forEach(photo => {
+      const card = document.createElement('div');
+      card.className = 'photo-card' + (selectedPhotos.has(photo.id) ? ' selected' : '');
+      card.dataset.id = photo.id;
+      card.onclick = () => togglePhoto(photo.id);
+      card.innerHTML = `
+        <img src="${photo.thumb}" loading="lazy" alt="">
+        <span class="badge">${photo.source}</span>
+        <span class="check">✓</span>`;
+      grid.appendChild(card);
+    });
+    document.getElementById('content').innerHTML = '';
+    document.getElementById('content').appendChild(grid);
+  }
+
+  function togglePhoto(id) {
+    if (selectedPhotos.has(id)) selectedPhotos.delete(id);
+    else selectedPhotos.add(id);
+    const card = document.querySelector(`.photo-card[data-id="${id}"]`);
+    if (card) card.classList.toggle('selected', selectedPhotos.has(id));
+    updateBottomBar();
+  }
+
+  function clearSelection() {
+    selectedPhotos.clear();
+    document.querySelectorAll('.photo-card.selected').forEach(c => c.classList.remove('selected'));
+    updateBottomBar();
+  }
+
+  function updateBottomBar() {
+    const count = selectedPhotos.size;
+    document.getElementById('selCount').textContent = count;
+    document.getElementById('bottomBar').classList.toggle('visible', count > 0);
+  }
+
+  function updateInfo() {
+    const u = allPhotos.filter(p => p.source === 'unsplash').length;
+    const p = allPhotos.filter(p => p.source === 'pexels').length;
+    document.getElementById('filter-unsplash').textContent = `Unsplash (${u})`;
+    document.getElementById('filter-pexels').textContent = `Pexels (${p})`;
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    ['all', 'unsplash', 'pexels'].forEach(x =>
+      document.getElementById('filter-' + x).classList.toggle('active', x === f));
+    renderGrid();
+  }
+
+  async function insertToAirtable() {
+    if (!recordId) { showToast('Nessun record Airtable — apri da Airtable', 'error'); return; }
+    const btn = document.getElementById('insertBtn');
+    btn.disabled = true; btn.textContent = 'Inserimento...';
+
+    const photos = allPhotos.filter(p => selectedPhotos.has(p.id));
+    const attachments = [];
+
+    for (const photo of photos) {
+      // Tracking download Unsplash (richiesto dalla licenza)
+      if (photo.source === 'unsplash' && photo.downloadUrl) {
+        await fetch(`${WORKER}/unsplash-download`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ downloadUrl: photo.downloadUrl })
+        });
+      }
+      attachments.push({ url: photo.full, filename: photo.filename });
+    }
+
+    try {
+      const res = await fetch(`${WORKER}/airtable`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId, attachments })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Errore Airtable');
+      showToast(`${attachments.length} foto inserite nel record!`, 'success');
+      clearSelection();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Inserisci in Airtable';
+    }
+  }
+
+  function showLoading() {
+    document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><div style="color:#555;font-size:.85rem">Ricerca in corso...</div></div>';
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast ' + (type || 'success');
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
 </script>
 </body>
 </html>
