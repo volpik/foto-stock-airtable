@@ -8,7 +8,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0a0a0a; color: #f0f0f0; font-family: 'Inter', -apple-system, sans-serif; min-height: 100vh; }
 
-    /* HEADER */
     .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #1e1e1e; }
     .logo { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.5px; }
     .logo span { color: #c8ff00; }
@@ -16,7 +15,6 @@
     .record-badge.error { border-color: #ff4444; color: #ff6666; }
     .record-badge.ok { border-color: #444; color: #ccc; }
 
-    /* SEARCH */
     .search-area { padding: 20px 24px 12px; }
     .search-row { display: flex; gap: 10px; }
     .search-input {
@@ -34,8 +32,7 @@
     .btn-search:hover { opacity: .85; }
     .btn-search:disabled { opacity: .4; cursor: not-allowed; }
 
-    /* FILTERS */
-    .filters { display: flex; gap: 8px; padding: 0 24px 16px; }
+    .filters { display: flex; gap: 8px; padding: 0 24px 16px; flex-wrap: wrap; }
     .filter-btn {
       padding: 5px 14px; border-radius: 999px; border: 1px solid #2a2a2a;
       background: transparent; color: #888; font-size: 0.75rem; cursor: pointer;
@@ -43,8 +40,7 @@
     }
     .filter-btn.active { background: #c8ff00; color: #0a0a0a; border-color: #c8ff00; }
 
-    /* CONTENT */
-    #content { padding: 0 24px 24px; }
+    #content { padding: 0 24px 100px; }
     .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
     .photo-card {
       position: relative; border-radius: 10px; overflow: hidden; cursor: pointer;
@@ -57,6 +53,7 @@
       color: #fff; font-size: 0.6rem; padding: 2px 7px; border-radius: 999px;
       text-transform: uppercase; font-weight: 700; letter-spacing: .05em;
     }
+    .badge.pixabay { background: rgba(30,100,30,.8); }
     .photo-card .check {
       position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
       background: #c8ff00; border-radius: 50%; display: none; align-items: center;
@@ -64,14 +61,12 @@
     }
     .photo-card.selected .check { display: flex; }
 
-    /* STATO VUOTO */
     .empty { text-align: center; color: #444; padding: 60px 0; font-size: 0.95rem; line-height: 2; }
     .loading { text-align: center; padding: 60px 0; }
     .spinner { width: 36px; height: 36px; border: 3px solid #222; border-top-color: #c8ff00;
       border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* BOTTOM BAR */
     .bottom-bar {
       position: fixed; bottom: 0; left: 0; right: 0;
       background: #111; border-top: 1px solid #1e1e1e;
@@ -90,7 +85,6 @@
     }
     .btn-insert:disabled { opacity: .4; cursor: not-allowed; }
 
-    /* TOAST */
     .toast {
       position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
       padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
@@ -119,6 +113,7 @@
   <button class="filter-btn active" id="filter-all" onclick="setFilter('all')">Tutte</button>
   <button class="filter-btn" id="filter-unsplash" onclick="setFilter('unsplash')">Unsplash</button>
   <button class="filter-btn" id="filter-pexels" onclick="setFilter('pexels')">Pexels</button>
+  <button class="filter-btn" id="filter-pixabay" onclick="setFilter('pixabay')">Pixabay</button>
 </div>
 
 <div id="content">
@@ -139,7 +134,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ── WORKER URL (nessuna API key qui) ─────────────────────────────
   const WORKER = 'https://cool-truth-2171foto-stock.cristiano-volpi-account.workers.dev';
   const PER_SOURCE = 15;
 
@@ -162,10 +156,15 @@
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
     selectedPhotos.clear(); updateBottomBar(); showLoading();
-    const [u, p] = await Promise.allSettled([searchUnsplash(query), searchPexels(query)]);
+    const [u, p, px] = await Promise.allSettled([
+      searchUnsplash(query),
+      searchPexels(query),
+      searchPixabay(query)
+    ]);
     allPhotos = [];
     if (u.status === 'fulfilled') allPhotos.push(...u.value);
     if (p.status === 'fulfilled') allPhotos.push(...p.value);
+    if (px.status === 'fulfilled') allPhotos.push(...px.value);
     allPhotos = shuffle(allPhotos);
     renderGrid(); updateInfo();
   }
@@ -193,10 +192,21 @@
     }));
   }
 
+  async function searchPixabay(query) {
+    const res = await fetch(`${WORKER}/pixabay?q=${encodeURIComponent(query)}&per_page=${PER_SOURCE}`);
+    if (!res.ok) throw new Error('Pixabay error');
+    const data = await res.json();
+    return (data.hits || []).map(p => ({
+      id: 'px_' + p.id, source: 'pixabay',
+      thumb: p.previewURL, full: p.largeImageURL,
+      downloadUrl: null, filename: `pixabay-${p.id}.jpg`
+    }));
+  }
+
   function renderGrid() {
     const filtered = currentFilter === 'all' ? allPhotos : allPhotos.filter(p => p.source === currentFilter);
     if (filtered.length === 0) {
-      document.getElementById('content').innerHTML = '<div class="empty">Nessuna foto trovata per questa ricerca.</div>';
+      document.getElementById('content').innerHTML = '<div class="empty">Nessuna foto trovata.</div>';
       return;
     }
     const grid = document.createElement('div');
@@ -208,7 +218,7 @@
       card.onclick = () => togglePhoto(photo.id);
       card.innerHTML = `
         <img src="${photo.thumb}" loading="lazy" alt="">
-        <span class="badge">${photo.source}</span>
+        <span class="badge ${photo.source}">${photo.source}</span>
         <span class="check">✓</span>`;
       grid.appendChild(card);
     });
@@ -237,15 +247,16 @@
   }
 
   function updateInfo() {
-    const u = allPhotos.filter(p => p.source === 'unsplash').length;
-    const p = allPhotos.filter(p => p.source === 'pexels').length;
-    document.getElementById('filter-unsplash').textContent = `Unsplash (${u})`;
-    document.getElementById('filter-pexels').textContent = `Pexels (${p})`;
+    const counts = { unsplash: 0, pexels: 0, pixabay: 0 };
+    allPhotos.forEach(p => counts[p.source]++);
+    document.getElementById('filter-unsplash').textContent = `Unsplash (${counts.unsplash})`;
+    document.getElementById('filter-pexels').textContent = `Pexels (${counts.pexels})`;
+    document.getElementById('filter-pixabay').textContent = `Pixabay (${counts.pixabay})`;
   }
 
   function setFilter(f) {
     currentFilter = f;
-    ['all', 'unsplash', 'pexels'].forEach(x =>
+    ['all', 'unsplash', 'pexels', 'pixabay'].forEach(x =>
       document.getElementById('filter-' + x).classList.toggle('active', x === f));
     renderGrid();
   }
@@ -259,7 +270,6 @@
     const attachments = [];
 
     for (const photo of photos) {
-      // Tracking download Unsplash (richiesto dalla licenza)
       if (photo.source === 'unsplash' && photo.downloadUrl) {
         await fetch(`${WORKER}/unsplash-download`, {
           method: 'POST',
