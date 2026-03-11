@@ -234,9 +234,9 @@
       }[p.source] || p.source;
 
       if (p.source === 'wikimedia') {
-        return `Foto di ${p.author} su ${sourceName} (${p.license || 'CC'})`;
+        return `Foto courtesy di ${p.author} su licenza ${sourceName} (${p.license || 'CC'})`;
       }
-      return `Foto di ${p.author} su ${sourceName}`;
+      return `Foto courtesy di ${p.author} su ${sourceName}`;
     }).filter(Boolean).join('\n');
   }
 
