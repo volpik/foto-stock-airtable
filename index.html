@@ -54,6 +54,7 @@
       text-transform: uppercase; font-weight: 700; letter-spacing: .05em;
     }
     .badge.pixabay { background: rgba(30,100,30,.8); }
+    .badge.wikimedia { background: rgba(0,60,120,.8); }
     .photo-card .check {
       position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
       background: #c8ff00; border-radius: 50%; display: none; align-items: center;
@@ -114,6 +115,7 @@
   <button class="filter-btn" id="filter-unsplash" onclick="setFilter('unsplash')">Unsplash</button>
   <button class="filter-btn" id="filter-pexels" onclick="setFilter('pexels')">Pexels</button>
   <button class="filter-btn" id="filter-pixabay" onclick="setFilter('pixabay')">Pixabay</button>
+  <button class="filter-btn" id="filter-wikimedia" onclick="setFilter('wikimedia')">Wikipedia</button>
 </div>
 
 <div id="content">
@@ -156,15 +158,17 @@
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
     selectedPhotos.clear(); updateBottomBar(); showLoading();
-    const [u, p, px] = await Promise.allSettled([
+    const [u, p, px, wm] = await Promise.allSettled([
       searchUnsplash(query),
       searchPexels(query),
-      searchPixabay(query)
+      searchPixabay(query),
+      searchWikimedia(query)
     ]);
     allPhotos = [];
     if (u.status === 'fulfilled') allPhotos.push(...u.value);
     if (p.status === 'fulfilled') allPhotos.push(...p.value);
     if (px.status === 'fulfilled') allPhotos.push(...px.value);
+    if (wm.status === 'fulfilled') allPhotos.push(...wm.value);
     allPhotos = shuffle(allPhotos);
     renderGrid(); updateInfo();
   }
@@ -200,6 +204,17 @@
       id: 'px_' + p.id, source: 'pixabay',
       thumb: p.previewURL, full: p.largeImageURL,
       downloadUrl: null, filename: `pixabay-${p.id}.jpg`
+    }));
+  }
+
+  async function searchWikimedia(query) {
+    const res = await fetch(`${WORKER}/wikimedia?q=${encodeURIComponent(query)}&per_page=${PER_SOURCE}`);
+    if (!res.ok) throw new Error('Wikimedia error');
+    const data = await res.json();
+    return (data.photos || []).map(p => ({
+      id: 'wm_' + p.id, source: 'wikimedia',
+      thumb: p.thumb, full: p.full,
+      downloadUrl: null, filename: p.filename
     }));
   }
 
@@ -247,16 +262,17 @@
   }
 
   function updateInfo() {
-    const counts = { unsplash: 0, pexels: 0, pixabay: 0 };
+    const counts = { unsplash: 0, pexels: 0, pixabay: 0, wikimedia: 0 };
     allPhotos.forEach(p => counts[p.source]++);
     document.getElementById('filter-unsplash').textContent = `Unsplash (${counts.unsplash})`;
     document.getElementById('filter-pexels').textContent = `Pexels (${counts.pexels})`;
     document.getElementById('filter-pixabay').textContent = `Pixabay (${counts.pixabay})`;
+    document.getElementById('filter-wikimedia').textContent = `Wikipedia (${counts.wikimedia})`;
   }
 
   function setFilter(f) {
     currentFilter = f;
-    ['all', 'unsplash', 'pexels', 'pixabay'].forEach(x =>
+    ['all', 'unsplash', 'pexels', 'pixabay', 'wikimedia'].forEach(x =>
       document.getElementById('filter-' + x).classList.toggle('active', x === f));
     renderGrid();
   }
