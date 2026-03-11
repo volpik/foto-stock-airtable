@@ -181,7 +181,8 @@
       id: 'u_' + p.id, source: 'unsplash',
       thumb: p.urls.small, full: p.urls.regular,
       downloadUrl: p.links.download_location,
-      filename: `unsplash-${p.id}.jpg`
+      filename: `unsplash-${p.id}.jpg`,
+      author: p.user?.name || 'Unknown'
     }));
   }
 
@@ -192,7 +193,8 @@
     return data.photos.map(p => ({
       id: 'p_' + p.id, source: 'pexels',
       thumb: p.src.medium, full: p.src.large,
-      downloadUrl: null, filename: `pexels-${p.id}.jpg`
+      downloadUrl: null, filename: `pexels-${p.id}.jpg`,
+      author: p.photographer || 'Unknown'
     }));
   }
 
@@ -203,7 +205,8 @@
     return (data.hits || []).map(p => ({
       id: 'px_' + p.id, source: 'pixabay',
       thumb: p.previewURL, full: p.largeImageURL,
-      downloadUrl: null, filename: `pixabay-${p.id}.jpg`
+      downloadUrl: null, filename: `pixabay-${p.id}.jpg`,
+      author: p.user || 'Unknown'
     }));
   }
 
@@ -214,8 +217,26 @@
     return (data.photos || []).map(p => ({
       id: 'wm_' + p.id, source: 'wikimedia',
       thumb: p.thumb, full: p.full,
-      downloadUrl: null, filename: p.filename
+      downloadUrl: null, filename: p.filename,
+      author: p.author || 'Unknown',
+      license: p.license || 'CC'
     }));
+  }
+
+  function buildAttribution(photos) {
+    return photos.map(p => {
+      const sourceName = {
+        unsplash: 'Unsplash',
+        pexels: 'Pexels',
+        pixabay: 'Pixabay',
+        wikimedia: 'Wikipedia Commons'
+      }[p.source] || p.source;
+
+      if (p.source === 'wikimedia') {
+        return `Foto di ${p.author} su ${sourceName} (${p.license || 'CC'})`;
+      }
+      return `Foto di ${p.author} su ${sourceName}`;
+    }).filter(Boolean).join('\n');
   }
 
   function renderGrid() {
@@ -296,11 +317,13 @@
       attachments.push({ url: photo.full, filename: photo.filename });
     }
 
+    const attribution = buildAttribution(photos);
+
     try {
       const res = await fetch(`${WORKER}/airtable`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId, attachments })
+        body: JSON.stringify({ recordId, attachments, attribution })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Errore Airtable');
