@@ -216,7 +216,8 @@
     const data = await res.json();
     return (data.photos || []).map(p => ({
       id: 'wm_' + p.id, source: 'wikimedia',
-      thumb: p.thumb, full: p.full,
+      thumb: p.thumb,
+      full: `${WORKER}/wikimedia-proxy?url=${encodeURIComponent(p.full)}`,
       downloadUrl: null, filename: p.filename,
       author: p.author || 'Unknown',
       license: p.license || 'CC'
