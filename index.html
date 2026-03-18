@@ -149,6 +149,14 @@
       badge.textContent = 'Record: ' + recordId.slice(0, 10) + '...';
       badge.className = 'record-badge ok';
     }
+
+    // ── Pre-popola il campo di ricerca con le keywords_foto passate via URL ──
+    const q = params.get('q');
+    if (q) {
+      document.getElementById('searchInput').value = q;
+      doSearch(); // lancia la ricerca automaticamente
+    }
+
     document.getElementById('searchInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') doSearch();
     });
